@@ -38,9 +38,11 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
   const [csvRows, setCsvRows] = useState<string[][]>([]);
   const [csvError, setCsvError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const { data: session } = useSession();
   const stageContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const [mappings, setMappings] = useState<{ email: string; file: File }[]>([]);
 
   const { stageRef, handlePointerDown, handlePointerMove, handlePointerUp } =
     useDragLayers(texts, scale, setTexts, (id) => setSelected(id));
@@ -158,6 +160,67 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
     setGenerating(false);
   }
 
+  async function saveCertificates(): Promise<
+    { email: string; file: File }[] | null
+  > {
+    if (!stageRef.current) return null;
+    if (csvRows.length === 0) {
+      setCsvError("No data rows to generate");
+      return null;
+    }
+    setSaving(true);
+    const stageEl = stageRef.current;
+    const imgEl = stageEl.querySelector("img");
+    if (imgEl && !imgEl.complete) {
+      await new Promise((r) => {
+        imgEl.onload = () => r(null);
+        imgEl.onerror = () => r(null);
+      });
+    }
+
+    const newMappings: { email: string; file: File }[] = [];
+
+    try {
+      for (let i = 0; i < csvRows.length; i++) {
+        const row = csvRows[i];
+        // row[0] = email; shift by 1 for text layers
+        setTexts((prev) =>
+          prev.map((t, idx) => ({ ...t, text: row[idx + 1] || "" }))
+        );
+        // allow React to paint updated texts
+        await new Promise((r) => setTimeout(r, 30));
+
+        const canvas = await html2canvas(stageEl, {
+          backgroundColor: null,
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+        });
+
+        const blob: Blob = await new Promise((resolve, reject) =>
+          canvas.toBlob(
+            (b) => (b ? resolve(b) : reject(new Error("Blob failed"))),
+            "image/png"
+          )
+        );
+
+        const uuid = crypto.randomUUID();
+        const file = new File([blob], `${uuid}.png`, { type: "image/png" });
+
+        newMappings.push({ email: row[0], file });
+      }
+
+      setMappings(newMappings);
+      return newMappings;
+    } catch (e) {
+      console.error(e);
+      setCsvError("Failed during upload.");
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function generateExcelTemplate() {
     const headers = ["email", ...texts.map((_, i) => `field_${i + 1}`)];
     const csv = headers.join(",") + "\n";
@@ -208,7 +271,22 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
       fd.append("from", payload.from.trim());
       fd.append("subject", payload.subject.trim());
       fd.append("body", payload.body);
-      fd.append("emails", JSON.stringify(emails));
+      // Send files + separate JSON metadata (cannot JSON.stringify File objects)
+      mappings.forEach((m, i) => {
+        fd.append("files", m.file, m.file.name); // backend can read all under 'files'
+      });
+
+      // Metadata without the File object
+      fd.append(
+        "mappings",
+        JSON.stringify(
+          mappings.map((m, i) => ({
+            index: i,
+            email: m.email,
+            fileName: m.file.name,
+          }))
+        )
+      );
       const res = await fetch("/api/mail/send", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -292,10 +370,12 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
             csvRows={csvRows}
             csvError={csvError}
             generating={generating}
+            saving={saving}
             onDownloadTemplate={generateExcelTemplate}
             onUpload={handleCSVUpload}
             onGenerate={generateZip}
             onSendEmails={sendEmails}
+            onSaveCertificates={saveCertificates}
           />
         </div>
       </div>
