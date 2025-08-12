@@ -1,4 +1,5 @@
 import React from "react";
+import Image from 'next/image';
 import { TextLayer } from "./CanvasStage";
 
 interface Props {
@@ -31,13 +32,14 @@ export function DesignStage({ baseImage, width, height, scale, texts, selectedId
           position: 'relative'
         }}
       >
-        <img
+        <Image
           src={baseImage}
           alt="Base"
-          className="absolute inset-0 h-full w-full object-contain pointer-events-none select-none"
-          crossOrigin="anonymous"
+          fill
+          sizes="(max-width: 1200px) 100vw, 1200px"
+          className="absolute inset-0 object-contain pointer-events-none select-none"
           draggable={false}
-          style={{ background: '#fff' }}
+          priority={false}
         />
         {texts.map(t => {
           const isSelected = t.id === selectedId;

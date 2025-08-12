@@ -87,14 +87,13 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
     reader.onload = () => {
       const content = String(reader.result || "");
       const { headers, rows } = parseCSV(content);
-      const expected = texts.map((_, i) => `field_${i + 1}`);
-      if (expected.length === 0) {
+      // include email as first expected header
+      const expected = ["email", ...texts.map((_, i) => `field_${i + 1}`)];
+      if (texts.length === 0) {
         setCsvError("Define at least one text layer before uploading CSV");
         return;
       }
-      const mismatch =
-        headers.length !== expected.length ||
-        headers.some((h, i) => h !== expected[i]);
+      const mismatch = headers.length !== expected.length || headers.some((h, i) => h !== expected[i]);
       if (mismatch) {
         setCsvError(`Header mismatch. Expected: ${expected.join(",")}`);
         setCsvHeaders([]);
@@ -125,9 +124,8 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
       });
     for (let i = 0; i < csvRows.length; i++) {
       const row = csvRows[i];
-      setTexts((prev) =>
-        prev.map((t, idx) => ({ ...t, text: row[idx] || "" }))
-      );
+      // row[0] is email (reference) so shift by 1 for text layers
+      setTexts(prev => prev.map((t, idx) => ({ ...t, text: row[idx + 1] || "" })));
       await new Promise((r) => setTimeout(r, 30));
       const canvas = await html2canvas(stageEl, {
         backgroundColor: null,
@@ -137,9 +135,7 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
       });
       const data = canvas.toDataURL("image/png");
       const base64 = data.split("base64,")[1];
-      const filename =
-        (row[0] || `certificate_${i + 1}`).replace(/[^a-z0-9-_]+/gi, "_") +
-        ".png";
+      const filename = (row[1] || row[0] || `certificate_${i + 1}`).replace(/[^a-z0-9-_]+/gi, "_") + ".png";
       zip.file(filename, base64, { base64: true });
     }
     const blob = await zip.generateAsync({ type: "blob" });
@@ -148,7 +144,7 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
   }
 
   function generateExcelTemplate() {
-    const headers = texts.map((_, i) => `field_${i + 1}`);
+    const headers = ["email", ...texts.map((_, i) => `field_${i + 1}`)];
     const csv = headers.join(",") + "\n";
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a");
@@ -234,7 +230,7 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
             onDownloadSample={downloadSampleCertificate}
           />
           <BulkGenerator
-            expectedHeaders={texts.map((_, i) => `field_${i + 1}`)}
+            expectedHeaders={["email", ...texts.map((_, i) => `field_${i + 1}`)]}
             csvHeaders={csvHeaders}
             csvRows={csvRows}
             csvError={csvError}

@@ -18,8 +18,8 @@ export function Hero() {
             Upload attendee data, choose a template, and let our platform generate, personalize & email verified certificates in minutes. Reduce manual work from hours to seconds.
           </p>
           <div className="mt-8 flex flex-wrap gap-4">
-            <Link href="/image-designer" className="rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Generate Certificates</Link>
-            <Link href="#demo" className="rounded-lg border border-zinc-300 bg-white/70 px-6 py-3 text-sm font-semibold text-zinc-900 shadow-sm backdrop-blur hover:bg-white dark:border-zinc-600 dark:bg-zinc-800/60 dark:text-white dark:hover:bg-zinc-700/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Send Certificates</Link>
+            <Link href="/bulk-certificate-generator" className="rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Generate Certificates</Link>
+            <Link href="/contact" className="rounded-lg border border-zinc-300 bg-white/70 px-6 py-3 text-sm font-semibold text-zinc-900 shadow-sm backdrop-blur hover:bg-white dark:border-zinc-600 dark:bg-zinc-800/60 dark:text-white dark:hover:bg-zinc-700/80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Contact Sales</Link>
           </div>
           <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">No credit card required. Free tier included.</p>
         </div>

@@ -11,8 +11,8 @@ export function CTA() {
           Cut manual design, export & email work. Focus on delivering value while we handle generation, branding, verification & delivery.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
-          <Link href="#" className="rounded-lg bg-white px-6 py-3 text-sm font-semibold text-zinc-900 shadow hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Start Free</Link>
-          <Link href="#pricing" className="rounded-lg border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">View Pricing</Link>
+          <Link href="/bulk-certificate-generator" className="rounded-lg bg-white px-6 py-3 text-sm font-semibold text-zinc-900 shadow hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Start Free</Link>
+          <Link href="/pricing" className="rounded-lg border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">View Pricing</Link>
         </div>
         <p className="mt-4 text-xs text-fuchsia-100/80">No setup fees. Cancel anytime.</p>
       </div>

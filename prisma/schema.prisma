@@ -1,0 +1,81 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  type         USERTYPE @default(FREE)
+  monthlyLimit Int      @default(20)
+  usedLimit    Int      @default(0)
+  isActive     Boolean  @default(true)
+  isVerified   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  otpVerification Otpverification?
+  loginHistory    loginHistory[]
+  emails          userEmails[]
+}
+
+enum USERTYPE {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+model Otpverification {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  otp            Int
+  lastVerifiedAt DateTime?
+  isActiveOtp    Boolean   @default(false)
+  expiresAt      DateTime
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([isActiveOtp, expiresAt], map: "otp_active_expires_idx")
+}
+
+model loginHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  ipAddress String
+  isSuccess Boolean
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+enum EmailSlot {
+  FIRST
+  SECOND
+}
+
+model userEmails {
+  id         String    @id @default(cuid())
+  userId     String
+  email      String
+  slot       EmailSlot
+  isPrimary  Boolean   @default(false)
+  isVerified Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([email])
+  @@unique([userId, slot])
+}
