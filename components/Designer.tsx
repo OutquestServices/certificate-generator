@@ -9,6 +9,8 @@ import html2canvas from "html2canvas";
 import { ImageUploader } from "./ImageUploader";
 import { useBaseImage } from "./hooks/useBaseImage";
 import { useDragLayers } from "./hooks/useDragLayers";
+import { useSession } from "next-auth/react";
+import { generateToken } from "@/lib/jwttoken";
 
 interface Props {
   searchParamImage?: string;
@@ -20,8 +22,12 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
     baseImageInline ||
     searchParamImage ||
     "https://res.cloudinary.com/certifier/image/upload/v1730217504/blank_certificate_templates_Certifier_blog_5_2b8da760be.png";
-  const { displayImage, loading: imageLoading, error: imageError, setFile: setImageFile } =
-    useBaseImage(initialBaseImageUrl);
+  const {
+    displayImage,
+    loading: imageLoading,
+    error: imageError,
+    setFile: setImageFile,
+  } = useBaseImage(initialBaseImageUrl);
 
   const [width] = useState(1200);
   const [height] = useState(675);
@@ -32,14 +38,12 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
   const [csvRows, setCsvRows] = useState<string[][]>([]);
   const [csvError, setCsvError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const { data: session } = useSession();
   const stageContainerRef = React.useRef<HTMLDivElement | null>(null);
 
-  const { stageRef, handlePointerDown, handlePointerMove, handlePointerUp } = useDragLayers(
-    texts,
-    scale,
-    setTexts,
-    (id) => setSelected(id)
-  );
+  const { stageRef, handlePointerDown, handlePointerMove, handlePointerUp } =
+    useDragLayers(texts, scale, setTexts, (id) => setSelected(id));
 
   const selectedLayer = texts.find((t) => t.id === selected) || null;
 
@@ -61,7 +65,9 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
     setSelected(id);
   }
   function updateLayer(partial: Partial<TextLayer>) {
-    setTexts((p) => p.map((t) => (t.id === selected ? { ...t, ...partial } : t)));
+    setTexts((p) =>
+      p.map((t) => (t.id === selected ? { ...t, ...partial } : t))
+    );
   }
   function deleteLayer() {
     if (!selected) return;
@@ -79,6 +85,7 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
   function handleCSVUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setCsvFile(file);
     if (!file.name.toLowerCase().endsWith(".csv")) {
       setCsvError("Please upload a .csv file");
       return;
@@ -93,7 +100,9 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
         setCsvError("Define at least one text layer before uploading CSV");
         return;
       }
-      const mismatch = headers.length !== expected.length || headers.some((h, i) => h !== expected[i]);
+      const mismatch =
+        headers.length !== expected.length ||
+        headers.some((h, i) => h !== expected[i]);
       if (mismatch) {
         setCsvError(`Header mismatch. Expected: ${expected.join(",")}`);
         setCsvHeaders([]);
@@ -125,7 +134,9 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
     for (let i = 0; i < csvRows.length; i++) {
       const row = csvRows[i];
       // row[0] is email (reference) so shift by 1 for text layers
-      setTexts(prev => prev.map((t, idx) => ({ ...t, text: row[idx + 1] || "" })));
+      setTexts((prev) =>
+        prev.map((t, idx) => ({ ...t, text: row[idx + 1] || "" }))
+      );
       await new Promise((r) => setTimeout(r, 30));
       const canvas = await html2canvas(stageEl, {
         backgroundColor: null,
@@ -135,7 +146,11 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
       });
       const data = canvas.toDataURL("image/png");
       const base64 = data.split("base64,")[1];
-      const filename = (row[1] || row[0] || `certificate_${i + 1}`).replace(/[^a-z0-9-_]+/gi, "_") + ".png";
+      const filename =
+        (row[1] || row[0] || `certificate_${i + 1}`).replace(
+          /[^a-z0-9-_]+/gi,
+          "_"
+        ) + ".png";
       zip.file(filename, base64, { base64: true });
     }
     const blob = await zip.generateAsync({ type: "blob" });
@@ -170,6 +185,45 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
     canvas.toBlob((blob) => {
       if (blob) saveAs(blob, "sample_certificate.png");
     });
+  }
+
+  async function sendEmails(payload: {
+    from: string;
+    subject: string;
+    body: string;
+  }): Promise<{
+    ok: boolean;
+    message: string;
+    results?: { email: string; result: boolean }[];
+  }> {
+    if (!csvFile) return { ok: false, message: "Upload CSV first." };
+    if (!payload.from || !payload.subject || !payload.body)
+      return { ok: false, message: "All fields required." };
+    const token = generateToken({ email: session?.user?.email }, 60);
+    if (!token) return { ok: false, message: "Not authenticated." };
+
+    const emails = csvRows.map((row) => row[0]);
+    try {
+      const fd = new FormData();
+      fd.append("from", payload.from.trim());
+      fd.append("subject", payload.subject.trim());
+      fd.append("body", payload.body);
+      fd.append("emails", JSON.stringify(emails));
+      const res = await fetch("/api/mail/send", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const j: any = await res.json().catch(() => ({}));
+      return {
+        ok: res.ok,
+        message:
+          j.message || (res.ok ? "Emails sent." : "Failed to send emails."),
+        results: Array.isArray(j.results) ? j.results : undefined,
+      };
+    } catch {
+      return { ok: false, message: "Network error." };
+    }
   }
 
   useEffect(() => {
@@ -230,7 +284,10 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
             onDownloadSample={downloadSampleCertificate}
           />
           <BulkGenerator
-            expectedHeaders={["email", ...texts.map((_, i) => `field_${i + 1}`)]}
+            expectedHeaders={[
+              "email",
+              ...texts.map((_, i) => `field_${i + 1}`),
+            ]}
             csvHeaders={csvHeaders}
             csvRows={csvRows}
             csvError={csvError}
@@ -238,6 +295,7 @@ export function Designer({ searchParamImage, baseImageInline }: Props) {
             onDownloadTemplate={generateExcelTemplate}
             onUpload={handleCSVUpload}
             onGenerate={generateZip}
+            onSendEmails={sendEmails}
           />
         </div>
       </div>

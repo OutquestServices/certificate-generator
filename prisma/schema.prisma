@@ -28,6 +28,7 @@ model User {
   otpVerification Otpverification?
   loginHistory    loginHistory[]
   emails          userEmails[]
+  Jobs            Jobs[]
 }
 
 enum USERTYPE {
@@ -78,4 +79,29 @@ model userEmails {
 
   @@unique([email])
   @@unique([userId, slot])
+}
+
+model Jobs {
+  id               String   @id @default(cuid())
+  userId           String
+  noOfEmails       Int
+  successfulEmails Int?
+  failedEmails     Int?
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  sentMails sentMails[]
+}
+
+model sentMails {
+  id        String   @id @default(cuid())
+  jobId     String
+  to        String
+  subject   String
+  body      String
+  sent      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  job Jobs @relation(fields: [jobId], references: [id])
 }
